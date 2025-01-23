@@ -1,0 +1,110 @@
+services:
+
+  db:
+    image: mariadb
+    volumes:
+      - ./db_data:/var/lib/mysql:Z
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT_EXPOSE}:${DB_PORT}"
+    networks:
+      - pixelfed
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized" ]
+      interval: "${DOCKER_DB_HEALTHCHECK_INTERVAL:?error}"
+      retries: 2
+      timeout: 5s
+
+  proxy:
+    build:
+      context: .
+      dockerfile: .docker/proxy/Dockerfile
+    restart: always
+    depends_on:
+      - pixelfed
+    volumes:
+      - ./source/public:/var/www/html/public
+      - ./storage:/var/www/html/storage
+    labels:
+      - "traefik.enable=true"
+      # Traefik Service
+      - "traefik.http.services.pixelfpv.loadbalancer.server.port=80"
+      # Traefik HTTPS
+      - "traefik.http.routers.pixelfpv.rule=Host(`pix.fpv.social`)"
+      - "traefik.http.routers.pixelfpv.entrypoints=websecure"
+      - "traefik.http.routers.pixelfpv.tls.certresolver=myresolver"
+      - "traefik.http.routers.pixelfpv.middlewares=secure-headers@file"
+      - "traefik.http.routers.pixelfpv.service=pixelfpv"
+      # Traefik HTTP
+      - "traefik.http.routers.pixelfpv-http.rule=Host(`pix.fpv.social`)"
+      - "traefik.http.routers.pixelfpv-http.entrypoints=web"
+      - "traefik.http.routers.pixelfpv-http.middlewares=httpsredirect@file"
+    networks:
+      - pixelfed
+      - web
+
+  pixelfed:
+    build:
+      context: .
+      dockerfile: .docker/pixelfed/Dockerfile
+    restart: always
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./storage:/var/www/html/storage/
+      - ./.env:/var/www/html/.env
+    networks:
+      - pixelfed
+    env_file:
+      - .env
+    post_start:
+      - command: "/post_start.sh"
+        user: "www-data"
+
+  worker:
+    build:
+      context: .
+      dockerfile: .docker/pixelfed/Dockerfile
+    depends_on:
+      - db
+      - redis
+      - pixelfed
+    command: gosu www-data php artisan horizon
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./.env:/var/www/html/.env
+    networks:
+      - pixelfed
+    env_file:
+      - .env
+    healthcheck:
+      test: gosu www-data php artisan horizon:status | grep running
+      interval: "${DOCKER_WORKER_HEALTHCHECK_INTERVAL:?error}"
+      timeout: 5s
+      retries: 2
+
+  redis:
+    image: redis
+    restart: unless-stopped
+    networks:
+      - pixelfed
+    environment:
+      TZ: "${TZ:?error}"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-p", "6379", "ping" ]
+      interval: "${DOCKER_REDIS_HEALTHCHECK_INTERVAL:?error}"
+      retries: 2
+      timeout: 5s
+
+networks:
+  pixelfed:
+  web:
+    external: true
