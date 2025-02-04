@@ -1,4 +1,4 @@
-FROM php:8.3-fpm
+FROM php:8.3-fpm AS php_base
 # Install apps/php extensions to base image.
 RUN apt-get update && apt-get install -y \
     libfreetype-dev libjpeg62-turbo-dev libpng-dev \
@@ -20,6 +20,9 @@ COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 # Configure PHP settings
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 COPY ./.docker/pixelfed/pixelfed-settings.ini /usr/local/etc/php/conf.d/pixelfed-settings.ini
+
+# Start the app-specific stuff
+FROM php_base AS pixelfed
 
 # Pull in the Pixelfed source and sort permissions
 COPY ./source /src
