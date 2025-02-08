@@ -33,17 +33,17 @@ services:
     labels:
       - "traefik.enable=true"
       # Traefik Service
-      - "traefik.http.services.pixelfpv.loadbalancer.server.port=80"
+      - "traefik.http.services.fpvsocial-pixelfed.loadbalancer.server.port=80"
       # Traefik HTTPS
-      - "traefik.http.routers.pixelfpv.rule=Host(`pix.fpv.social`)"
-      - "traefik.http.routers.pixelfpv.entrypoints=websecure"
-      - "traefik.http.routers.pixelfpv.tls.certresolver=myresolver"
-      - "traefik.http.routers.pixelfpv.middlewares=secure-headers@file"
-      - "traefik.http.routers.pixelfpv.service=pixelfpv"
+      - "traefik.http.routers.fpvsocial-pixelfed.rule=Host(`pix.fpv.social`)"
+      - "traefik.http.routers.fpvsocial-pixelfed.entrypoints=websecure"
+      - "traefik.http.routers.fpvsocial-pixelfed.tls.certresolver=myresolver"
+      - "traefik.http.routers.fpvsocial-pixelfed.middlewares=secure-headers@file"
+      - "traefik.http.routers.fpvsocial-pixelfed.service=fpvsocial-pixelfed"
       # Traefik HTTP
-      - "traefik.http.routers.pixelfpv-http.rule=Host(`pix.fpv.social`)"
-      - "traefik.http.routers.pixelfpv-http.entrypoints=web"
-      - "traefik.http.routers.pixelfpv-http.middlewares=httpsredirect@file"
+      - "traefik.http.routers.fpvsocial-pixelfed-http.rule=Host(`pix.fpv.social`)"
+      - "traefik.http.routers.fpvsocial-pixelfed-http.entrypoints=web"
+      - "traefik.http.routers.fpvsocial-pixelfed-http.middlewares=httpsredirect@file"
     networks:
       - pixelfed
       - web
